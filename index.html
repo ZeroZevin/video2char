@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+      /* font-size: 0; */
+    }
+
+    canvas,
+    video {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <input type="file" id="file" name="file" accept=".mp4,.flv">
+</body>
+<script src="https://cdn.bootcss.com/flv.js/1.3.3/flv.min.js"></script>
+<script>
+  let fontSize = 9
+  let $file = document.getElementById('file')
+  $file.onchange = function () {
+    let file = $file.files.item(0)
+    // let reader = new FileReader()
+    // reader.readAsDataURL(file, 'UTF-8')
+    // reader.onprogress = function (evt) {
+    //   console.log(`${(evt.loaded / evt.total * 100).toFixed()}%`)
+    // }
+    // reader.onload = function (evt) {
+      document.body.removeChild($file)
+      // evt.target.result
+      play(URL.createObjectURL(file), file.name.split('.').pop())
+    // }
+  }
+
+  function play(url, type) {
+    if (flvjs.isSupported()) {
+      let videoElement = document.createElement('video')
+      videoElement.loop = true
+      let flvPlayer = flvjs.createPlayer({
+        type: type,
+        url: url
+      })
+      flvPlayer.attachMediaElement(videoElement)
+      flvPlayer.load()
+      flvPlayer.volume = 0.1
+      flvPlayer.play()
+      // document.body.appendChild(videoElement)
+
+      flvPlayer.on('media_info', function (mediaInfo) {
+        // 设置canvas
+        let canvasElement = document.createElement('canvas')
+        // 不明原因的卡
+        // canvasElement.onmousewheel = () => { }
+        let fps = mediaInfo.fps
+        let canvasWidth = mediaInfo.width
+        let canvasHeight = mediaInfo.height
+        let textInfo
+        let chars = "MMWNKEGD0OLkxdolc;:,'... "
+        let fontWidth
+
+        canvasElement.width = canvasWidth
+        canvasElement.height = canvasHeight
+        ctx = canvasElement.getContext('2d')
+        ctx.font = `${fontSize}px courier new`
+        ctx.fillStyle = 'black'
+        ctx.textBaseline = 'middle'
+        fontWidth = ctx.measureText('A').width
+        textInfo = {
+          col: ~~Math.ceil(canvasWidth / fontWidth),
+          row: canvasHeight / fontSize
+        }
+
+        document.body.appendChild(canvasElement)
+
+        draw()
+
+        function draw() {
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+          ctx.drawImage(videoElement, 0, 0, textInfo.col, textInfo.row)
+          let strings = getStringData(ctx, textInfo.col, textInfo.row)
+          ctx.clearRect(0, 0, textInfo.col, textInfo.row)
+          for (let i = 0, len = strings.length; i < len; i++) {
+            ctx.fillText(strings[i], 0, fontSize * (i + 0.5), canvasWidth, fontSize)
+          }
+          requestAnimationFrame(draw)
+        }
+
+        function getStringData(ctx, width, height) {
+          let length = textInfo.row * textInfo.col
+          let strings = []
+          // 获取一个 fontSize * fontSize 色块的颜色
+          let imageData = ctx.getImageData(0, 0, width, height)
+          for (let i = 0; i < length * 4; i += 4) {
+            let myRed = imageData.data[i]
+            let myGreen = imageData.data[i + 1]
+            let myBlue = imageData.data[i + 2]
+            let myGray = parseInt((myRed + myGreen + myBlue) / 3)
+            let char = chars[~~(myGray / 255 * chars.length)]
+            let index = ~~(i / 4 / width)
+            if (strings[index]) {
+              strings[index].push(char)
+            } else {
+              strings[index] = []
+              strings[index].push(char)
+            }
+          }
+          return strings
+        }
+      })
+    }
+  }
+
+</script>
+
+</html>
